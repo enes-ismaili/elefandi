@@ -1,0 +1,288 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Mail\NewOrder;
+use App\Models\User;
+use App\Models\Order;
+use App\Models\Product;
+use App\Models\OrderTrack;
+use App\Models\OrderDetail;
+use App\Models\OrderVendor;
+use App\Models\UserAddress;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+
+class CartController extends Controller
+{
+    public function viewcart()
+    {
+        return view('user.cart.cart');
+    }
+
+    public function checkout()
+    {
+        if(current_user()){
+            $currentCart = current_user()->cart;
+            $isLoggedIn = true;
+            if(isset($_COOKIE['country_id']) && $_COOKIE['country_id']){
+                $currentCountry = $_COOKIE['country_id'];
+            } else {
+                $currentCountry = 1;
+            }
+            $address = current_user()->addresses->where('country_id', '=', $currentCountry)->where('udelete', '=', 0);
+        } else {
+            $currentCart = [];
+            $isLoggedIn = false;
+            $address = [];
+        }
+        return view('user.cart.checkout', compact('currentCart', 'isLoggedIn', 'address'));
+    }
+
+    public function checkoutpost(Request $request)
+    {
+        if(current_user()){
+            $validatedDate = $request->validate([
+                'addresses' => 'required',
+            ], [
+                'addresses.required' => 'Zgjidhni ose shtoni një adresë se ku do të dërgohet ky produkt',
+            ]);
+        }
+        $ordersProducts = [];
+        $allProducts = [];
+        $prodTransV = [];
+        $prodCostV = [];
+        $totalPrice = 0;
+        $transTotalPrice = 0;
+        if(isset($_COOKIE['country_id']) && $_COOKIE['country_id']){
+            $currentCountry = $_COOKIE['country_id'];
+        } else {
+            $currentCountry = 1;
+        }
+        if(current_user()){
+            $products = current_user()->cart;
+        } else {
+            $products = json_decode($request->cartcheckout);
+        }
+        if($products){
+            foreach($products as $product){
+                if(current_user()){
+                    $currProduct = $product->product;
+                    $prodId = $product->product_id;
+                } else {
+                    $currProduct = Product::where('id', '=', $product->id)->first();
+                    $prodId = $product->id;
+                }
+                $currentVariant = $currProduct->cartVariant($product->variant_id);
+                $noStock = false;
+                if($currentVariant){
+                    $prodPrice = $currentVariant->price ? $currentVariant->price : $currProduct->price;
+                    if($currProduct->offers($product->variant_id)){
+                        $offer = $currProduct->offers($product->variant_id);
+                        if($offer->type < 3){
+                            $prodPrice = round($prodPrice - (($prodPrice * $offer->discount)/100), 3);
+                        } else {
+                            $prodPrice = $offer->discount;
+                        }
+                    } else {
+                        $offer = '';
+                    }
+                    $prodMaxStock = $currentVariant->stock ? $currentVariant->stock : $currProduct->stock;
+                    $productStock = $product->qty;
+                    if($prodMaxStock){
+                        if($product->qty > $prodMaxStock){
+                            $productStock = $prodMaxStock;
+                        }
+                    } else {
+                        $noStock = true;
+                    }
+                    // $varName = $currentVariant->name;
+                } else {
+                    $prodPrice = $currProduct->price;
+                    // $oldPrice = $prodPrice;
+                    if($currProduct->offers()){
+                        $offer = $currProduct->offers();
+                        if($offer->type < 3){
+                            $prodPrice = round($prodPrice - (($prodPrice * $offer->discount)/100), 3);
+                        } else {
+                            $prodPrice = $offer->discount;
+                        }
+                    } else {
+                        $offer = '';
+                    }
+                    $prodMaxStock = $currProduct->stock;
+                    $productStock = $product->qty;
+                    if($prodMaxStock){
+                        if($product->qty > $prodMaxStock){
+                            $productStock = $prodMaxStock;
+                        }
+                    } else {
+                        $productStock = 0;
+                        $prodMaxStock = 0;
+                        $noStock = true;
+                    }
+                    // $varName = '';
+                }
+                $getShipping = $currProduct->shippings->where('country_id', '=', $currentCountry)->first();
+                if($getShipping){
+                    $shippingCost = $getShipping->cost;
+                } else {
+                    $getShipping = $currProduct->owner->shippings()->where('country_id', '=', $currentCountry)->first();
+                    if($getShipping){
+                        // $transportInfo = TransportInfo::where('id', '=', $getShippingVendor->transtime)->first();
+                        // $productShippings .= '"c'.$country->id.'":{"id":"'.$getShippingVendor->id.'","shipping":"'.$getShippingVendor->limit.'","free":"0","cost":"'.$getShippingVendor->cost.'","shipping_time":"'.$getShippingVendor->transtime.'", "timeName":"'.$transportInfo->name.'"}';
+                    }
+                    $shippingCost = $getShipping->cost;
+                }
+                
+                if(!$noStock && (($getShipping && $getShipping->shipping == 1))){
+                    $ordersProducts[$prodId]['variant_id'] = $product->variant_id;
+                    $ordersProducts[$prodId]['qty'] = $productStock;
+                    $ordersProducts[$prodId]['price'] = $prodPrice;
+                    $ordersProducts[$prodId]['personalize'] = ''; //Personalize
+    
+                    $totalPrice += ($productStock * $prodPrice);
+                    // if(isset($transPriceVend[$currProduct->owner->id]) && $transPriceVend[$currProduct->owner->id]){
+                    //     $transPriceVend[$currProduct->owner->id]['cost'] += $shippingCost;
+                    // } else {
+                    //     $transPriceVend[$currProduct->owner->id]['cost'] = $shippingCost;
+                    //     $transPriceVend[$currProduct->owner->id]['name'] = $currProduct->owner->name;
+                    // }
+                    $transTotalPrice += $shippingCost;
+    
+                    $allProducts[$currProduct->owner->id][] = $currProduct;
+                    if(isset($prodTransV[$currProduct->owner->id]) && $prodTransV[$currProduct->owner->id]){
+                        $prodTransV[$currProduct->owner->id] += $shippingCost;
+                    } else {
+                        $prodTransV[$currProduct->owner->id] = ($shippingCost *1);
+                    }
+                    if(isset($prodCostV[$currProduct->owner->id]) && $prodCostV[$currProduct->owner->id]){
+                        $prodCostV[$currProduct->owner->id] += ($productStock * $prodPrice);
+                    } else {
+                        $prodCostV[$currProduct->owner->id] = ($productStock * $prodPrice);
+                    }
+                }
+            }
+            $order = new Order();
+            if(current_user()){
+                $order->user_id = current_user()->id;
+                $order->address_id = $request->addresses; //Adresa LogIn
+                $user = current_user();
+            } else {
+                $user = new User();
+                $user->first_name = $request->fname;
+                $user->last_name = $request->lname;
+                $user->email = $request->email;
+                $user->password = Hash::make('123456'); // TODO: generate pass
+                $user->phone = $request->phone;
+                $user->address = $request->addresses;
+                $user->zipcode = $request->zipcode;
+                $user->city = $request->city;
+                $user->country_id = $request->country;
+                $user->save();
+                $userId = $user->id;
+                $order->user_id = $userId;
+    
+                $address = new UserAddress();
+                $address->user_id = $user->id;
+                $address->name = $request->sname;
+                $address->phone = $request->sphone;
+                $address->address = $request->saddress;
+                $address->address2 = ''; // Address2
+                $address->zipcode = $request->szipcode;
+                $address->city = $request->scity;
+                $address->country_id = $request->scountry;
+                $address->save();
+                $addressId = $address->id;
+                $order->address_id = $addressId;
+            }
+            $order->notes = $request->additionalinformation;
+            $order->value = $totalPrice;
+            $order->transport = $transTotalPrice;
+            $order->save();
+            foreach($allProducts as $key=>$prodVendor){
+                $vendOrder = new OrderVendor();
+                $vendOrder->order_id = $order->id;
+                $vendOrder->vendor_id = $key;
+                $vendOrder->value = $prodCostV[$key];
+                $vendOrder->transport = $prodTransV[$key];
+                $vendOrder->save();
+                foreach($prodVendor as $product){
+                    $orderDetail = new OrderDetail();
+                    $orderDetail->order_id = $order->id;
+                    $orderDetail->order_vendor_id = $vendOrder->id;
+                    $orderDetail->product_id = $product->id;
+                    $orderDetail->variant_id = $ordersProducts[$product->id]['variant_id'];
+                    $orderDetail->price = $ordersProducts[$product->id]['price'];
+                    $orderDetail->qty = $ordersProducts[$product->id]['qty'];
+                    $orderDetail->personalize = $ordersProducts[$product->id]['personalize'];
+                    $orderDetail->save();
+                    $currentProduct = Product::find($product->id);
+                    $newStock = $product->stock - $ordersProducts[$product->id]['qty'];
+                    $currentProduct->stock = $newStock;
+                    $newSales = $product->sales + $ordersProducts[$product->id]['qty'];
+                    $currentProduct->sales = $newSales;
+                    $currentProduct->save();
+                    // current_user()->cart()->where([['product_id', '=', $product->id],['variant_id', '=', $ordersProducts[$product->id]['variant_id']]])->delete();
+                }
+                Mail::to($vendOrder->vendor->email)->send(new NewOrder($user, $order, $vendOrder));
+            }
+            if(current_user()){
+                current_user()->cart()->delete();
+                Mail::to(current_user()->email)->send(new NewOrder($user, $order, false));
+            } else {
+                Mail::to($user->email)->send(new NewOrder($user, $order, false));
+            }
+            if(current_user()){
+                return redirect()->route('profile.orders.index');
+            } else {
+                session()->flash('clearlocal', 'true.');
+                return redirect()->route('home');
+            }
+        }
+    }
+
+    public function trackorder()
+    {
+        $orderTrack = [];
+        $orderTrackSearch = false;
+        $error = false;
+        return view('user.track.order', compact('orderTrack', 'orderTrackSearch'));
+    }
+
+    public function trackorderpost(Request $request)
+    {
+        $validatedDate = $request->validate([
+            'ordernumber' => 'required',
+            'email' => 'required',
+        ], [
+            'ordernumber.required' => 'Numri i Porosisë është i detyrueshëm',
+            'email.required' => 'Email është i detyrueshëm',
+        ]);
+        if(is_numeric($request->ordernumber)){
+            $order = Order::find($request->ordernumber);
+            if($order){
+                if($order->user->email == $request->email){
+                    $orderVendor = OrderVendor::where('order_id', '=', $request->ordernumber)->get();
+                    $orderTrack = OrderTrack::where('order_id', '=', $request->ordernumber)->get();
+                    $orderTrackSearch = true;
+                    $error = false;
+                    return view('user.track.order', compact('order', 'orderTrack', 'orderVendor', 'orderTrackSearch', 'error'));
+                } else {
+                    $orderTrackSearch = true;
+                    $orderTrack = '';
+                    $error = true;
+                    return view('user.track.order', compact('orderTrack', 'orderTrackSearch', 'error'));
+                }
+            } else {
+                $orderTrackSearch = true;
+                $orderTrack = '';
+                $error = true;
+                return view('user.track.order', compact('orderTrack', 'orderTrackSearch', 'error'));
+            }
+        } else {
+            abort(404);
+        }
+    }
+}

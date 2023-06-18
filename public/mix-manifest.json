@@ -1,0 +1,20 @@
+{
+    "/js/app.js": "/js/app.js",
+    "/js/admin.js": "/js/admin.js",
+    "/js/datatables.js": "/js/datatables.js",
+    "/js/datatime.js": "/js/datatime.js",
+    "/js/posts.js": "/js/posts.js",
+    "/js/laravel-echo-setup.js": "/js/laravel-echo-setup.js",
+    "/css/adstyle.css": "/css/adstyle.css",
+    "/css/afont.css": "/css/afont.css",
+    "/css/bootstrap.css": "/css/bootstrap.css",
+    "/css/datatime.css": "/css/datatime.css",
+    "/css/app.css": "/css/app.css",
+    "/css/user.css": "/css/user.css",
+    "/css/single.css": "/css/single.css",
+    "/css/slider.css": "/css/slider.css",
+    "/css/style.css": "/css/style.css",
+    "/css/home.css": "/css/home.css",
+    "/css/post.css": "/css/post.css",
+    "/css/adcustom.css": "/css/adcustom.css"
+}

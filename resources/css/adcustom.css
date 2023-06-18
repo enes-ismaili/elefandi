@@ -1,0 +1,441 @@
+.list-group {
+    counter-reset: categories;
+    .list-group-item {
+        background-color: #f6f6f6;
+        padding-bottom: 0;
+        .fas.handle {
+            cursor: grab;
+            margin-right: 10px;
+            font-size: 15px;
+        }
+        .list-group-title {
+            position: relative;
+            padding-bottom: .75rem;
+            span.name {
+                &::before {
+                    counter-increment: categories;
+                    content: counter(categories) ". ";
+                }
+            }
+            .categories-right {
+                float: right;
+                position: relative;
+                top: 0;
+                >* {
+                    display: inline-block;
+                }
+                >div+div {
+                    margin-left: 10px;
+                }
+                .toogle-category {
+                    .fas {
+                        font-size: 17px;
+                        pointer-events: none;
+                    }
+                }
+            }
+            &.category-collapse {
+                .categories-right {
+                    .toogle-category {
+                        .fa-compress-alt {
+                            &::before {
+                                content: "\f424";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        &.sortable-chosen {
+            background-color: #ffb5b5 !important;
+            .fas {
+                cursor: grabbing;
+            }
+        }
+    }
+    .list-group {
+        padding: 0 0 .75rem;
+        max-height: 9999px;
+        transition: all .3s ease-in-out;
+        .list-group-item {
+            background-color: #e6e6e6;
+        }
+        .list-group {
+            .list-group-item {
+                background-color: #d5d5d5;
+            }
+        }
+    }
+    &.category-collapse {
+        max-height: 0;
+        overflow: hidden;
+        padding: 0;
+        transition: all .4s ease-in-out;
+    }
+}
+
+.dshow {
+    display: block;
+}
+
+.modal.show .modal_bg {
+    background: #2222226b;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.custom-file-input:lang(sq)~.custom-file-label::after {
+    content: "Ngarko"
+}
+
+span.input-group-text.small {
+    height: 36px;
+    padding: 0 15px;
+}
+
+span.input-group-text.xsmall {
+    height: 30px;
+    line-height: 1;
+    padding: 0 10px;
+    font-size: 13px;
+}
+
+.shipping-country {
+    background-color: #fbfbfb;
+    padding-top: 10px;
+    border-radius: 5px;
+    +.shipping-country {
+        margin-top: 10px;
+    }
+    .shipping-options {
+        overflow: hidden;
+        max-height: 0;
+        transition: all .2s ease;
+        padding-left: 10px;
+        +.shipping-options {
+            padding-top: 0;
+        }
+        &.show {
+            max-height: 999px;
+            transition: all .2s ease;
+            padding-top: 10px;
+        }
+    }
+    .shiping-price {
+        overflow: hidden;
+        max-height: 0;
+        transition: all .2s ease;
+        margin-left: 5px;
+        margin-top: 5px;
+        font-size: 12px;
+        align-items: center;
+        &.show {
+            max-height: 999px;
+            transition: all .2s ease;
+        }
+        .form-control {
+            height: 30px;
+            line-height: 1;
+            padding: 0 10px;
+            font-size: 13px;
+        }
+    }
+}
+
+.edit-product {
+    .shipping-country {
+        .shipping-options {
+            overflow: hidden;
+            max-height: 0;
+            transition: all .2s ease;
+            padding-left: 10px;
+            &.show {
+                max-height: 999px;
+                transition: all .2s ease;
+                padding-top: 10px;
+            }
+        }
+    }
+}
+
+.shipping-product {
+    overflow: hidden;
+    max-height: 0;
+    transition: all .2s ease;
+    &.show {
+        max-height: 999px;
+        transition: all .2s ease;
+    }
+}
+
+.single-message {
+    width: 90%;
+    margin-left: 10px;
+    position: relative;
+    padding: 15px 20px;
+    min-height: 90px;
+    border-radius: 5px;
+    box-shadow: 1px 0px 10px #22222221;
+    &:before {
+        position: absolute;
+        top: 10px;
+        left: -20px;
+        display: block;
+        content: '';
+        width: 0;
+        height: 0;
+        border-style: solid;
+        border-width: 10px 10px 10px;
+        border-color: #0000 #22222221 #0000 #0000;
+        z-index: 8;
+    }
+    +.single-message {
+        margin-top: 15px;
+    }
+    &.w1 {
+        margin-left: 10%;
+        &:before {
+            left: auto;
+            right: -20px;
+            border-color: #0000 #0000 #0000 #22222221;
+        }
+    }
+    .message-title {
+        display: flex;
+        justify-content: space-between;
+    }
+    .divider {
+        margin: 5px 0;
+    }
+    .message-text {
+        white-space: pre-line;
+    }
+}
+
+.chat-list {
+    .vchats {
+        .card-body {
+            display: flex;
+             ::-webkit-scrollbar {
+                width: 6px
+            }
+             ::-webkit-scrollbar-track {
+                border-radius: 5px
+            }
+             ::-webkit-scrollbar-thumb {
+                background: grey;
+                background-clip: padding-box;
+                border-radius: 5px
+            }
+            .chat-left {
+                flex: 1 1 auto;
+                background: #fff;
+                border-bottom: 1px solid #d2cfcf;
+                padding-left: 5px;
+                padding-right: 5px;
+                overflow-y: scroll;
+                padding-top: 20px;
+                .chat-body {
+                    height: 410px;
+                    padding: 0 8px;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    scrollbar-color: gray transparent;
+                    scrollbar-width: thin;
+                    .message {
+                        margin: 8px 5px 8px 0;
+                        font-size: 15px;
+                        line-height: 20px;
+                        word-wrap: break-word;
+                        display: inline-block;
+                        max-width: 85%;
+                        clear: both;
+                        position: relative;
+                        transition: margin .28s ease-in-out;
+                        &:before {
+                            content: "";
+                            position: absolute;
+                            bottom: 0;
+                            transform: translate(-50%, 0);
+                            display: block;
+                            width: 0;
+                            height: 0;
+                            border-style: solid;
+                            border-width: 6px 18px 6px;
+                            border-color: transparent #f0f2f7 transparent transparent;
+                            z-index: 0;
+                        }
+                        .txt {
+                            position: relative;
+                            z-index: 1;
+                            padding: 10px 16px;
+                            border-radius: 10px;
+                            font-size: 14px;
+                        }
+                        &.w1 {
+                            float: left;
+                            &:before {
+                                left: -8px;
+                                border-width: 6px 18px 6px;
+                                border-color: transparent #f0f2f7 transparent transparent;
+                            }
+                            .txt {
+                                color: #06132b;
+                                background: #f0f2f7;
+                            }
+                            &.ns {
+                                &:before {
+                                    border-color: transparent #3ba068 transparent transparent;
+                                }
+                                .txt {
+                                    color: #fff;
+                                    background: #3ba068;
+                                }
+                            }
+                        }
+                        &.w2 {
+                            float: right;
+                            &:before {
+                                right: -16px;
+                                border-width: 6px 18px 6px;
+                                border-color: transparent transparent transparent #03c2fd;
+                                border-right: 0;
+                            }
+                            &.p {
+                                &:before {
+                                    border: none;
+                                }
+                            }
+                            .txt {
+                                background: linear-gradient(135deg, rgb(42, 39, 218), rgb(0, 204, 255));
+                                color: #fff;
+                                transition: transform .2s ease 0s, margin .2s ease 0s;
+                            }
+                        }
+                        .chat-product {
+                            margin: 0 5px;
+                            background: #fff;
+                            color: #000;
+                            border-radius: 10px;
+                            padding: 7px;
+                            position: relative;
+                            width: 160px;
+                            box-shadow: 1px 0px 10px #22222221;
+                            font-size: 14px;
+                            .chat-product-title {
+                                font-weight: 800;
+                                border-top: 1px solid #eee;
+                                margin-top: 3px;
+                            }
+                            .chat-product-thumb {
+                                min-height: 150px;
+                            }
+                        }
+                        &.ns {
+                            .chat-product {
+                                background: #3ba068;
+                                a {
+                                    color: #fff;
+                                }
+                            }
+                        }
+                    }
+                    .loading-messages {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        align-items: center;
+                        justify-content: center;
+                        background: #00000017;
+                        z-index: 9999;
+                        display: none;
+                        &.show {
+                            display: flex;
+                        }
+                    }
+                }
+                .chat-footer {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    padding: 0 7px;
+                    width: 100%;
+                    border-top: 1px solid #d2cfcf;
+                    .chat-name {
+                        width: 100%;
+                        margin-top: 5px;
+                        border-bottom: 1px solid #ddd;
+                        input.form-control {
+                            outline: none;
+                            border: transparent;
+                            height: 35px;
+                            padding: 0 10px;
+                            &.required {
+                                border: 1px solid #f00;
+                            }
+                        }
+                    }
+                    .chat-text {
+                        display: flex;
+                        align-items: center;
+                        width: 100%;
+                        height: 70px;
+                        .chat-input {
+                            margin: 0;
+                            width: 100%;
+                            height: 85%;
+                            textarea.form-control {
+                                border: transparent;
+                                resize: none;
+                                height: 100%;
+                                padding: 5px 10px;
+                                outline: none;
+                                &.required {
+                                    border: 1px solid #f00;
+                                }
+                            }
+                        }
+                        .chat-send {
+                            width: 100px;
+                            text-align: center;
+                            color: #186eea;
+                            font-size: 32px;
+                            cursor: pointer;
+                        }
+                    }
+                }
+            }
+            .chat-right {
+                height: 502px;
+                overflow-y: scroll;
+                width: 100%;
+                width: 280px;
+                border-left: 1px solid #b5b5b5;
+                flex: 0 0 auto;
+                .clients {
+                    list-style: none;
+                    padding: 0 20px;
+                    font-size: 15px;
+                    scrollbar-color: gray transparent;
+                    scrollbar-width: thin;
+                    li {
+                        background-color: #f0f0f0;
+                        padding: 4px 10px;
+                        margin-bottom: 7px;
+                        cursor: pointer;
+                        &.active,
+                        &:hover {
+                            background-color: #fcb800;
+                            color: #fff;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,461 @@
+<x-app-layout>
+    @push('scripts')
+<script>
+    let copyDatas = document.querySelectorAll('.copydatas');
+    let basicData = document.querySelector('.basicdata');
+    let shippingData = document.querySelector('.shippingdata');
+    copyDatas.forEach(copyData => {
+        copyData.addEventListener('click', e => {
+            let cfName = basicData.querySelector('#fname').value;
+            let clName = basicData.querySelector('#lname').value;
+            let cPhone = basicData.querySelector('#phone').value;
+            let cAddress = basicData.querySelector('#address').value;
+            let cZipcode = basicData.querySelector('#zipcode').value;
+            let cCity = basicData.querySelector('#city').value;
+            shippingData.querySelector('#sname').value = cfName+' '+clName;
+            shippingData.querySelector('#sphone').value = cPhone;
+            shippingData.querySelector('#saddress').value = cAddress;
+            shippingData.querySelector('#szipcode').value = cZipcode;
+            shippingData.querySelector('#scity').value = cCity;
+            console.log(e);
+        })
+    })
+    let openLoginModals = document.querySelectorAll('.openLoginModal');
+    openLoginModals.forEach(openLoginModal => {
+        openLoginModal.addEventListener('click', e => {
+            window.livewire.emitTo('header.login-user', 'openLogin');
+        });
+    })
+    document.addEventListener("DOMContentLoaded", () => {
+        window.livewire.on('change-countries', (e) => {
+            window.history.back();
+        });
+    });
+</script>
+    @endpush
+    @push('styles')
+    @endpush
+    @section('pageTitle', 'Përfundimi i blerjes')
+    @php
+        if(isset($_COOKIE['country_id']) && $_COOKIE['country_id']){
+            $currentCountry = $_COOKIE['country_id'];
+        } else {
+            $currentCountry = 1;
+        }
+        $totalPrice = 0;
+        $transPrice = 0;
+    @endphp
+    <div class="container">
+        <div class="checkout-page">
+            <div class="page-title">Përfundimi i blerjes</div>
+            <form class="checkout-main" action="{{ route('view.checkout.submit') }}" method="POST">
+                @csrf
+                <div class="row">
+                    <div class="col-7">
+                        @if(!$isLoggedIn)
+                        <p style="background: #f1f1f1; padding: 12px; color: black;"><i class="fas fa-sign-in-alt"></i> Jeni të regjistruar në dyqanin tonë? <span class="openLoginModal" >Klikoni këtu për tu kyqur.</span></p>
+                        @endif
+                        <div class="card basicdata">
+                            <div class="card-header">
+                                <h5>Të dhënat personale</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="fname">Emri *</label>
+                                            <input type="text" name="fname" class="form-control" id="fname" placeholder="Emri" @if($isLoggedIn) value="{{ current_user()->first_name }}" disabled @endif>
+                                            @error('fname') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="lname">Mbiemri *</label>
+                                            <input type="text" name="lname" class="form-control" id="lname" placeholder="Emri" @if($isLoggedIn) value="{{ current_user()->last_name }}" disabled @endif>
+                                            @error('lname') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="phone">Numri i telefonit *</label>
+                                            <input type="text" name="phone" class="form-control" id="phone" placeholder="Telefoni" @if($isLoggedIn) value="{{ current_user()->phone }}" disabled @endif>
+                                            @error('phone') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="email">Email Adresa *</label>
+                                            <input type="email" name="email" class="form-control" id="email" placeholder="Email" @if($isLoggedIn) value="{{ current_user()->email }}" disabled @endif>
+                                            @error('email') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="address">Adresa *</label>
+                                            <input type="text" name="address" class="form-control" id="address" placeholder="Adresa" @if($isLoggedIn) value="{{ current_user()->address }}" disabled @endif>
+                                            @error('address') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="zipcode">Kodi Postal</label>
+                                            <input type="text" name="zipcode" class="form-control" id="zipcode" placeholder="Kodi Postal" @if($isLoggedIn) value="{{ current_user()->zipcode }}" disabled @endif>
+                                            @error('zipcode') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    @livewire('user.select-countries', ['selCountry'=> (old('country') ? old('country') : 0), 'selCity'=>(old('city') ? old('city') : 0)])
+                                    @error('country') <span class="text-danger error">{{ $message }}</span>@enderror
+                                    @error('city') <span class="text-danger error">{{ $message }}</span>@enderror
+                                    {{-- <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="country">Shteti *</label>
+                                            <input type="text" name="country" class="form-control" id="country" placeholder="Shteti" @if($isLoggedIn) value="{{ current_user()->country()->name }}" disabled @endif>
+                                            @error('country') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="zipcode">Qyteti *</label>
+                                            <input type="text" name="city" class="form-control" id="city" placeholder="Qyteti" @if($isLoggedIn) value="{{ (is_numeric(current_user()->city))?current_user()->cities->name : current_user()->city }}" disabled @endif>
+                                            @error('city') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div> --}}
+                                </div>
+                            </div>
+                        </div>
+                        @if(!$isLoggedIn)
+                        <div class="card shippingdata">
+                            <div class="card-header">
+                                <h5>Adresa e dërgimit</h5>
+                                <div class="right copydatas">Kopjo nga "Të dhënat personale"</div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="sname">Personi kontaktues *</label>
+                                            <input type="text" name="sname" class="form-control" id="sname" placeholder="Emri">
+                                            @error('sname') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="sphone">Numri i telefonit *</label>
+                                            <input type="text" name="sphone" class="form-control" id="sphone" placeholder="Telefoni">
+                                            @error('sphone') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="saddress">Adresa *</label>
+                                            <input type="text" name="saddress" class="form-control" id="saddress" placeholder="Adresa">
+                                            @error('saddress') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="szipcode">Kodi Postal</label>
+                                            <input type="text" name="szipcode" class="form-control" id="szipcode" placeholder="Kodi Postal">
+                                            @error('szipcode') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    @livewire('user.select-countries', [
+                                        'selCountry'=> (old('country') ? old('country') : 0), 
+                                        'selCity'=>(old('city') ? old('city') : 0), 
+                                        'countyField' => 'scountry', 'cityField' => 'scity'
+                                    ])
+                                    @error('scountry') <span class="text-danger error">{{ $message }}</span>@enderror
+                                    @error('scity') <span class="text-danger error">{{ $message }}</span>@enderror
+                                    {{-- <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="scountry">Shteti *</label>
+                                            <input type="text" name="scountry" class="form-control" id="scountry" placeholder="Shteti">
+                                            @error('scountry') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label for="scity">Qyteti *</label>
+                                            <input type="text" name="scity" class="form-control" id="scity" placeholder="Kodi Postal">
+                                            @error('scity') <span class="text-danger error">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div> --}}
+                                </div>
+                            </div>
+                        </div>
+                        @else
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5>Zgjidh Adresën</h5>
+                                </div>
+                                <div class="card-body">
+                                    @foreach($address as $saddress)
+                                        <div class="form-group">
+                                            <input type="radio" name="addresses" id="adr{{$saddress->id}}" value="{{$saddress->id}}" @if($saddress->primary || (count($address) == 1)) checked @endif required>
+                                            <label for="adr{{$saddress->id}}">{{ $saddress->name.', '.$saddress->address.', '.((is_numeric($saddress->city) && $saddress->country_id < 4)?$saddress->cityF->name:$saddress->city) }}</label>
+                                        </div>
+                                    @endforeach
+                                    @error('addresses') <span class="text-danger error">{{ $message }}</span>@enderror
+                                    @livewire('user.change-address', ['type'=>'add', 'addressState'=>$currentCountry, 'changeState'=>true, 'needReload'=>false])
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                    <div class="col-5">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Informata shtesë</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <textarea class="form-control" name="additionalinformation" id="additionalinformation" rows="3" placeholder="Ju lutem shkruani të gjitha informatat shtesë në lidhje me këtë porosi."></textarea>
+                                    @error('additionalinformation') <span class="text-danger error">{{ $message }}</span>@enderror
+                                </div>
+                            </div>
+                        </div>
+                        @if($isLoggedIn)
+                        <div class="card checkout-total">
+                            <div class="card-header">
+                                <h5>Porosia juaj</h5>
+                            </div>
+                            <div class="card-body">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Produkte</th>
+                                            <th>Sasia</th>
+                                            <th>Çmimi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @php
+                                            $hasCoupon = false;
+                                            $couponDisscountPrice = 0;
+                                            if (isset($_COOKIE['couponCode'])) {
+                                                $couponCode = $_COOKIE['couponCode'];
+                                                if($couponCode) {
+                                                    $coupon = App\Models\Coupon::where('code', '=', $couponCode)->first();
+                                                    if($coupon){
+                                                        $today = time();
+                                                        $startDate = strtotime($coupon->start_date);
+                                                        $expireDate = strtotime($coupon->expire_date);
+                                                        if($today > $startDate && $today < $expireDate){
+                                                            // return $this->addCoupon();
+                                                            $hasCoupon = true;
+                                                            if($coupon->type == 1){
+                                                            } elseif($coupon->type == 2){
+                                                                $categoryList = '';
+                                                                $i = 0;
+                                                                foreach(json_decode($coupon->categories) as $category){
+                                                                    $i++;
+                                                                    $couponArray[] = $category;
+                                                                    $thisCategory = App\Models\Category::where('id', '=', $category)->first();
+                                                                    if($i > 1){
+                                                                        $categoryList .= ', ';
+                                                                    }
+                                                                    $categoryList .= $thisCategory->name;
+                                                                }
+                                                            } else {
+                                                                $i = 0;
+                                                                foreach(json_decode($coupon->products) as $product){
+                                                                    $i++;
+                                                                    $couponArray[] = $product;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        @endphp
+                                        @foreach($currentCart as $product)
+                                            @php
+                                                $currProduct = $product->product;
+                                                $currentVariant = $currProduct->cartVariant($product->variant_id);
+                                                $noStock = false;
+                                                $hasOffer = false;
+                                                if($currentVariant){
+                                                    $prodPrice = $currentVariant->price ? $currentVariant->price : $currProduct->price;
+                                                    $oldPrice = $prodPrice;
+                                                    if($currProduct->offers($product->variant_id)){
+                                                        $offer = $currProduct->offers($product->variant_id);
+                                                        if($offer->type < 3){
+                                                            $prodPrice = round($prodPrice - (($prodPrice * $offer->discount)/100), 3);
+                                                        } else {
+                                                            $prodPrice = $offer->discount;
+                                                        }
+                                                        $hasOffer= true;
+                                                    } else {
+                                                        $offer = '';
+                                                    }
+                                                    $prodMaxStock = $currentVariant->stock ? $currentVariant->stock : $currProduct->stock;
+                                                    $productStock = $product->qty;
+                                                    if($prodMaxStock){
+                                                        if($product->qty > $prodMaxStock){
+                                                            $productStock = $prodMaxStock;
+                                                        }
+                                                    } else {
+                                                        $noStock = true;
+                                                    }
+                                                    $varName = $currentVariant->name;
+                                                } else {
+                                                    $prodPrice = $currProduct->price;
+                                                    $oldPrice = $prodPrice;
+                                                    if($currProduct->offers()){
+                                                        $offer = $currProduct->offers();
+                                                        if($offer->type < 3){
+                                                            $prodPrice = round($prodPrice - (($prodPrice * $offer->discount)/100), 3);
+                                                        } else {
+                                                            $prodPrice = $offer->discount;
+                                                        }
+                                                        $hasOffer= true;
+                                                    } else {
+                                                        $offer = '';
+                                                    }
+                                                    $prodMaxStock = $currProduct->stock;
+                                                    $productStock = $product->qty;
+                                                    if($prodMaxStock){
+                                                        if($product->qty > $prodMaxStock){
+                                                            $productStock = $prodMaxStock;
+                                                        }
+                                                    } else {
+                                                        $productStock = 0;
+                                                        $prodMaxStock = 0;
+                                                        $noStock = true;
+                                                    }
+                                                    $varName = '';
+                                                }
+                                                $getShipping = $currProduct->shippings->where('country_id', '=', $currentCountry)->first();
+                                                if($getShipping){
+                                                    $shippingCost = $getShipping->cost;
+                                                } else {
+                                                    $getShipping = $currProduct->owner->shippings()->where('country_id', '=', $currentCountry)->first();
+                                                    if($getShipping){
+                                                        // $transportInfo = TransportInfo::where('id', '=', $getShippingVendor->transtime)->first();
+                                                        // $productShippings .= '"c'.$country->id.'":{"id":"'.$getShippingVendor->id.'","shipping":"'.$getShippingVendor->limit.'","free":"0","cost":"'.$getShippingVendor->cost.'","shipping_time":"'.$getShippingVendor->transtime.'", "timeName":"'.$transportInfo->name.'"}';
+                                                    }
+                                                    if($getShipping){
+                                                        $shippingCost = $getShipping->cost;
+                                                    }
+                                                }
+                                                if($hasCoupon && !$noStock && (($getShipping && $getShipping->shipping == 1))){
+                                                    if($currProduct->owner->id ==  $coupon->vendor_id){  
+                                                        if($coupon->type == 1){
+                                                            if($hasOffer && $coupon->withoffer){
+                                                                $couponPrice = ($prodPrice * (100 - $coupon->discount))/100;
+                                                                $couponDisscountPrice += $prodPrice - $couponPrice;
+                                                                $prodPrice = $couponPrice;
+                                                            } else {
+                                                                $prodPrice = ($oldPrice * (100 - $coupon->discount))/100;
+                                                                $couponDisscountPrice += $oldPrice - $prodPrice;
+                                                            }
+                                                            $hasCouponActive = true;
+                                                            $couponDisscount = $coupon->discount.(($coupon->action == 1) ? '%' : '€');
+                                                        } else if($coupon->type == 2){
+                                                            $productCategories = $currProduct->allCategories()->pluck('id')->toArray();
+                                                            $hasCategory = array_intersect($productCategories, $couponArray);
+                                                            if(count($hasCategory)){
+                                                                if($hasOffer && $coupon->withoffer){
+                                                                    $couponPrice = ($prodPrice * (100 - $coupon->discount))/100;
+                                                                    $couponDisscountPrice += $prodPrice - $couponPrice;
+                                                                    $prodPrice = $couponPrice;
+                                                                } else {
+                                                                    $prodPrice = ($oldPrice * (100 - $coupon->discount))/100;
+                                                                    $couponDisscountPrice += $oldPrice - $prodPrice;
+                                                                }
+                                                                $hasCouponActive = true;
+                                                                $couponDisscount = $coupon->discount.(($coupon->action == 1) ? '%' : '€');
+                                                            }
+                                                        } else {
+                                                            if(in_array($currProduct->id, $couponArray)){
+                                                                if($hasOffer && $coupon->withoffer){
+                                                                    $couponPrice = ($prodPrice * (100 - $coupon->discount))/100;
+                                                                    $couponDisscountPrice += $prodPrice - $couponPrice;
+                                                                    $prodPrice = $couponPrice;
+                                                                } else {
+                                                                    $prodPrice = ($oldPrice * (100 - $coupon->discount))/100;
+                                                                    $couponDisscountPrice += $oldPrice - $prodPrice;
+                                                                }
+                                                                $hasCouponActive = true;
+                                                                $couponDisscount = $coupon->discount.(($coupon->action == 1) ? '%' : '€');
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                if(!$noStock && (($getShipping && $getShipping->shipping == 1))){
+                                                    $totalPrice += ($product->qty * $prodPrice);
+                                                    $transPrice += $shippingCost;
+                                                }
+                                            @endphp
+                                            @if(!$noStock && (($getShipping && $getShipping->shipping == 1)))
+                                                <tr>
+                                                    <td>
+                                                        <a href="{{ route('single.product', [$currProduct->owner->slug, $currProduct->id]) }}">{{$currProduct->name}}</a>
+                                                        @if($varName)
+                                                            <br>
+                                                            <span>Varianti: <span>{{ $currentVariant->name }}</span></span>
+                                                        @endif
+                                                        <br>
+                                                        <span>Dyqani: <a href="{{ route('single.vendor', $currProduct->owner->slug) }}">{{ $currProduct->owner->name }}</a></span>
+                                                    </td>
+                                                    <td>{{ $product->qty }}</td>
+                                                    <td>{{ $prodPrice }}€</td>
+                                                </tr>
+                                            @endif
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                                <div class="divider"></div>
+                                <div class="tworows subtotal">
+                                    <div class="left">Nëntotal</div>
+                                    <div class="right"><span>{{$totalPrice * 1}}</span> €</div>
+                                </div>
+                                <div class="tworows subtotal">
+                                    <div class="left">Kosto e transportit</div>
+                                    <div class="right"><span>{{$transPrice * 1}}</span> €</div>
+                                </div>
+                                @if($couponDisscountPrice)
+                                <div class="tworows subtotal">
+                                    <div class="left">Kuponi</div>
+                                    <div class="right"><span>- {{$couponDisscountPrice}}</span> €</div>
+                                </div>
+                                @endif
+                                <div class="tworows subtotal">
+                                    <div class="left">Total</div>
+                                    <div class="right"><span>{{$totalPrice + $transPrice}}</span> €</div>
+                                </div>
+                                <div class="divider"></div>
+                                <div class="payment-options">
+                                    <label for="">Metoda e Pagesës</label>
+                                    <div>PARA NË DORË</div>
+                                    <div>Paguaj pasi ta pranoni porosinë</div>
+                                </div>
+                            </div>
+                        </div>
+                        @else
+                            @livewire('cart.view-checkout')
+                        @endif
+                        <div class="form-group">
+                            <div class="checkbox">
+                                <input name="terms-and-conditions" class="form-control" type="checkbox" id="termsandconditions" required="">
+                                <label for="termsandconditions">Unë i pranoj Kushtet e Përdorimit dhe Politikat e Privatësisë</label>
+                            </div>
+                            <p id="termserror" style="color:red; display:none;"><i class="fa fa-exclamation-circle"></i> Ju lutem pranoni kushtet e përdorimit për të vazhduar!</p>
+                        </div>
+                        <button type="submit" class="btn full-width">Përfundo blerjen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</x-app-layout>

@@ -1,0 +1,50 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\ApiController;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| is assigned the "api" middleware group. Enjoy building your API!
+|
+*/
+
+Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+    return $request->user();
+});
+
+Route::get('/v1/m_config', [ApiController::class, 'config']);
+Route::get('/v1/home_slider', [ApiController::class, 'homeSlider']);
+Route::get('/v1/all_categories', [ApiController::class, 'allCategories']);
+Route::get('/v1/home_categories', [ApiController::class, 'homeCategories']);
+Route::get('/v1/home_categories_product', [ApiController::class, 'homeCategoriesProduct']);
+Route::get('/v1/product/{id}', [ApiController::class, 'singleProduct']);
+Route::get('/v1/all_products/{page}/{cat}', [ApiController::class, 'allProducts']);
+Route::get('/v1/searchs/{cat}/{page}', [ApiController::class, 'searchProducts']);
+Route::get('/v1/get_countries', [ApiController::class, 'getCountriesList']);
+Route::get('/v1/get_cities/{id}', [ApiController::class, 'getCitiesList']);
+Route::post('/v1/login_user', [ApiController::class, 'loginUser']);
+Route::get('/v1/token/validate', [ApiController::class, 'tokenValidate'])->middleware('custom_auth');
+Route::post('/v1/token/validate', [ApiController::class, 'tokenValidate'])->middleware('custom_auth');
+Route::post('/v1/wishlists', [ApiController::class, 'getWishList']);
+Route::post('/v1/get_cart', [ApiController::class, 'getCarts']);
+Route::get('/v1/get_orders', [ApiController::class, 'getOrders'])->middleware('custom_auth');
+Route::get('/v1/get_order/{id}', [ApiController::class, 'getOrderDetail'])->middleware('custom_auth');
+Route::get('/v1/get_vorders', [ApiController::class, 'getVOrders'])->middleware('custom_auth');
+Route::get('/v1/get_vorder/{id}', [ApiController::class, 'getVOrderDetail'])->middleware('custom_auth');
+Route::get('/v1/get_addresses', [ApiController::class, 'getAddresses'])->middleware('custom_auth');
+Route::get('/v1/get_address/{id}', [ApiController::class, 'getAddressDetail'])->middleware('custom_auth');
+Route::get('/v1/get_vendor', [ApiController::class, 'getVendor'])->middleware('custom_auth');
+Route::get('/v1/get_fvendor', [ApiController::class, 'getfVendor'])->middleware('custom_auth');
+Route::get('/v1/get_vendor_settings', [ApiController::class, 'getVendorSettings'])->middleware('custom_auth');
+Route::get('/v1/get_products', [ApiController::class, 'getProducts'])->middleware('custom_auth');
+Route::get('/v1/get_vendor_info/{id}', [ApiController::class, 'getVendorInfo']);
+Route::get('/v1/get_vendor_products/{oid}/{id}', [ApiController::class, 'getVendorProducts']);
+Route::get('/v1/get_category/{id}', [ApiController::class, 'getCategoryInfo']);
+Route::get('/v1/get_vendor_category/{id}/{vid}', [ApiController::class, 'getVendorCategoryInfo']);

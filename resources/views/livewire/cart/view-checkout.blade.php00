@@ -1,0 +1,213 @@
+<div>
+    <div class="card checkout-total">
+        <div class="card-header">
+            <h5>Porosia juaj</h5>
+            <input type="hidden" name="cartcheckout" id="cartCheckout" value="{{ json_encode($currentCart) }}">
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Produkte</th>
+                        <th>Sasia</th>
+                        <th>Çmimi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @php
+                        $couponDisscountPrice = 0;
+                    @endphp
+                    @foreach($currentCart as $product)
+                        @php
+                            $currProduct = App\Models\Product::where('id', '=', $product->id)->first();
+                            // $currProduct = $product->product;
+                            $currentVariant = $currProduct->cartVariant($product->variant_id);
+                            $noStock = false;
+                            if($currentVariant){
+                                $prodPrice = $currentVariant->price ? $currentVariant->price : $currProduct->price;
+                                $oldPrice = $prodPrice;
+                                if($currProduct->offers($product->variant_id)){
+                                    $offer = $currProduct->offers($product->variant_id);
+                                    if($offer->type < 3){
+                                        $prodPrice = round($prodPrice - (($prodPrice * $offer->discount)/100), 3);
+                                    } else {
+                                        $prodPrice = $offer->discount;
+                                    }
+                                    $hasOffer= true;
+                                } else {
+                                    $offer = '';
+                                }
+                                $prodMaxStock = $currentVariant->stock ? $currentVariant->stock : $currProduct->stock;
+                                $productStock = $product->qty;
+                                if($prodMaxStock){
+                                    if($product->qty > $prodMaxStock){
+                                        $productStock = $prodMaxStock;
+                                    }
+                                } else {
+                                    $noStock = true;
+                                }
+                                $varName = $currentVariant->name;
+                            } else {
+                                $prodPrice = $currProduct->price;
+                                $oldPrice = $prodPrice;
+                                if($currProduct->offers()){
+                                    $offer = $currProduct->offers();
+                                    if($offer->type < 3){
+                                        $prodPrice = round($prodPrice - (($prodPrice * $offer->discount)/100), 3);
+                                    } else {
+                                        $prodPrice = $offer->discount;
+                                    }
+                                    $hasOffer= true;
+                                } else {
+                                    $offer = '';
+                                }
+                                $prodMaxStock = $currProduct->stock;
+                                $productStock = $product->qty;
+                                if($prodMaxStock){
+                                    if($product->qty > $prodMaxStock){
+                                        $productStock = $prodMaxStock;
+                                    }
+                                } else {
+                                    $productStock = 0;
+                                    $prodMaxStock = 0;
+                                    $noStock = true;
+                                }
+                                $varName = '';
+                            }
+                            $getShipping = $currProduct->shippings->where('country_id', '=', $currentCountry)->first();
+                            if($getShipping){
+                                $shippingCost = $getShipping->cost;
+                            } else {
+                                $getShipping = $currProduct->owner->shippings()->where('country_id', '=', $currentCountry)->first();
+                                if($getShipping){
+                                    // $transportInfo = TransportInfo::where('id', '=', $getShippingVendor->transtime)->first();
+                                    // $productShippings .= '"c'.$country->id.'":{"id":"'.$getShippingVendor->id.'","shipping":"'.$getShippingVendor->limit.'","free":"0","cost":"'.$getShippingVendor->cost.'","shipping_time":"'.$getShippingVendor->transtime.'", "timeName":"'.$transportInfo->name.'"}';
+                                }
+                                $shippingCost = $getShipping->cost;
+                            }
+                            $hasCouponActive = false;
+                            if($hasCoupon && !$noStock && (($getShipping && $getShipping->shipping == 1))){
+                                if($currProduct->owner->id ==  $coupon->vendor_id){  
+                                    if($coupon->type == 1){
+                                        if($hasOffer && $coupon->withoffer){
+                                            $couponPrice = ($prodPrice * (100 - $coupon->discount))/100;
+                                            $couponDisscountPrice += $prodPrice - $couponPrice;
+                                            $prodPrice = $couponPrice;
+                                        } else {
+                                            $prodPrice = ($oldPrice * (100 - $coupon->discount))/100;
+                                            $couponDisscountPrice += $oldPrice - $prodPrice;
+                                        }
+                                        $hasCouponActive = true;
+                                        $couponDisscount = $coupon->discount.(($coupon->action == 1) ? '%' : '€');
+                                    } else if($coupon->type == 2){
+                                        $productCategories = $currProduct->allCategories()->pluck('id')->toArray();
+                                        $hasCategory = array_intersect($productCategories, $couponArray);
+                                        if(count($hasCategory)){
+                                            if($hasOffer && $coupon->withoffer){
+                                                $couponPrice = ($prodPrice * (100 - $coupon->discount))/100;
+                                                $couponDisscountPrice += $prodPrice - $couponPrice;
+                                                $prodPrice = $couponPrice;
+                                            } else {
+                                                $prodPrice = ($oldPrice * (100 - $coupon->discount))/100;
+                                                $couponDisscountPrice += $oldPrice - $prodPrice;
+                                            }
+                                            $hasCouponActive = true;
+                                            $couponDisscount = $coupon->discount.(($coupon->action == 1) ? '%' : '€');
+                                        }
+                                    } else {
+                                        if(in_array($currProduct->id, $couponArray)){
+                                            if($hasOffer && $coupon->withoffer){
+                                                $couponPrice = ($prodPrice * (100 - $coupon->discount))/100;
+                                                $couponDisscountPrice += $prodPrice - $couponPrice;
+                                                $prodPrice = $couponPrice;
+                                            } else {
+                                                $prodPrice = ($oldPrice * (100 - $coupon->discount))/100;
+                                                $couponDisscountPrice += $oldPrice - $prodPrice;
+                                            }
+                                            $hasCouponActive = true;
+                                            $couponDisscount = $coupon->discount.(($coupon->action == 1) ? '%' : '€');
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if(!$noStock && (($getShipping && $getShipping->shipping == 1))){
+                                $totalPrice += ($product->qty * $prodPrice);
+                                if(isset($transPriceVend[$currProduct->owner->id]) && $transPriceVend[$currProduct->owner->id]){
+                                    $transPriceVend[$currProduct->owner->id]['cost'] += $shippingCost;
+                                } else {
+                                    $transPriceVend[$currProduct->owner->id]['cost'] = $shippingCost;
+                                    $transPriceVend[$currProduct->owner->id]['name'] = $currProduct->owner->name;
+                                }
+                                $transPrice += $shippingCost;
+                            }
+                        @endphp
+                        @if(!$noStock && (($getShipping && $getShipping->shipping == 1)))
+                            <tr>
+                                <td>
+                                    <a href="{{ route('single.product', [$currProduct->owner->slug, $currProduct->id]) }}">{{$currProduct->name}}</a>
+                                    @if($varName)
+                                        <br>
+                                        <span>Varianti: <span>{{ $currentVariant->name }}</span></span>
+                                    @endif
+                                    <br>
+                                    <span>Dyqani: <a href="{{ route('single.vendor', $currProduct->owner->slug) }}">{{ $currProduct->owner->name }}</a></span>
+                                </td>
+                                <td>{{ $product->qty }}</td>
+                                <td>{{ $prodPrice }}€</td>
+                            </tr>
+                        @endif
+                    @endforeach
+                </tbody>
+            </table>
+            <div class="divider"></div>
+            <div class="tworows subtotal">
+                <div class="left">Nëntotal</div>
+                <div class="right"><span>{{$totalPrice * 1}}</span> €</div>
+            </div>
+            <div class="tworows subtotal">
+                <div class="left">Kosto e transportit</div>
+                <div class="right"><span>{{$transPrice * 1}}</span> €</div>
+            </div>
+            @if($couponDisscountPrice)
+            <div class="tworows subtotal">
+                <div class="left">Kuponi</div>
+                <div class="right"><span>- {{ $couponDisscountPrice }}</span> €</div>
+            </div>
+            @endif
+            <div class="tworows subtotal">
+                <div class="left">Total</div>
+                <div class="right"><span>{{$totalPrice + $transPrice}}</span> €</div>
+            </div>
+            <div class="divider"></div>
+            <div class="payment-options">
+                <label for="">Metoda e Pagesës</label>
+                <div>PARA NË DORË</div>
+                <div>Paguaj pasi ta pranoni porosinë</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            getCartss();
+            // let cartCheckout = document.querySelector('#cartCheckout');
+            // if(cartCheckout){
+            //     console.log(cartCheckout)
+            //     let currentCarts = window.localStorage.getItem('cart');
+            //     console.log(currentCarts)
+            //     cartCheckout.value = ''+currentCarts;
+            // }
+            // getCartss()
+        });
+        function getCartss(){
+            let currentCart = window.localStorage.getItem('cart');
+            if(currentCart){
+                console.log('tesa')
+                window.livewire.emit('cgetCart', currentCart);
+                // let cartCheckout = document.querySelector('#cartCheckout');
+                // cartCheckout.value = currentCart;
+                // cartCheckout.value = 'tes';
+            }
+        }
+    </script>
+</div>

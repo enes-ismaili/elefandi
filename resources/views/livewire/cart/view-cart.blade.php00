@@ -1,0 +1,394 @@
+<div>
+    <table class="table shopping-cart">
+        <thead>
+            <tr>
+                <th style="text-align: left;">Emri produktit</th>
+                <th>Çmimi</th>
+                <th>Sasia</th>
+                <th>Total</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="cart-body">
+            @php
+                $totalPrice = 0;
+                $transPrice = 0;
+                $couponDisscountPrice = 0;
+            @endphp
+            @foreach($products as $product)
+                @php
+                    if($getFromJson){
+                        $currProduct = App\Models\Product::where('id', '=', $product->id)->first();
+                    } else {
+                        $currProduct = $product->product;
+                    }
+                    $noStock = false;
+                    $currentVariant = $currProduct->cartVariant($product->variant_id);
+                    $hasOffer = false;
+                    if($currentVariant){
+                        $prodPrice = $currentVariant->price ? $currentVariant->price : $currProduct->price;
+                        $oldPrice = $prodPrice;
+                        if($currProduct->offers($product->variant_id)){
+                            $offer = $currProduct->offers($product->variant_id);
+                            if($offer->type < 3){
+                                $prodPrice = round($prodPrice - (($prodPrice * $offer->discount)/100), 3);
+                            } else {
+                                $prodPrice = $offer->discount;
+                            }
+                            $hasOffer= true;
+                        } else {
+                            $offer = '';
+                        }
+                        $prodMaxStock = $currentVariant->stock ? $currentVariant->stock : $currProduct->stock;
+                        $productStock = $product->qty;
+                        if($prodMaxStock){
+                            if($product->qty > $prodMaxStock){
+                                $productStock = $prodMaxStock;
+                            }
+                        } else {
+                            $noStock = true;
+                        }
+                        $varName = $currentVariant->name;
+                    } else {
+                        $prodPrice = $currProduct->price;
+                        $oldPrice = $prodPrice;
+                        if($currProduct->offers()){
+                            $offer = $currProduct->offers();
+                            if($offer->type < 3){
+                                $prodPrice = round($prodPrice - (($prodPrice * $offer->discount)/100), 3);
+                            } else {
+                                $prodPrice = $offer->discount;
+                            }
+                            $hasOffer= true;
+                        } else {
+                            $offer = '';
+                        }
+                        $prodMaxStock = $currProduct->stock;
+                        $productStock = $product->qty;
+                        if($prodMaxStock){
+                            if($product->qty > $prodMaxStock){
+                                $productStock = $prodMaxStock;
+                            }
+                        } else {
+                            $productStock = 0;
+                            $prodMaxStock = 0;
+                            $noStock = true;
+                        }
+                        $varName = '';
+                    }
+                    $getShipping = $currProduct->shippings->where('country_id', '=', $currentCountry)->first();
+					//dd($getShipping);
+                    if($getShipping){
+                        if($getShipping->free){
+                            $shippingCost = 0;
+                        } else {
+                            $shippingCost = $getShipping->cost;
+                        }
+                        //$shippingCost = $getShipping->cost;
+                    } else {
+                        $getShipping = $currProduct->owner->shippings()->where('country_id', '=', $currentCountry)->first();
+						//dd($getShipping);
+                        if($getShipping){
+                            // $transportInfo = TransportInfo::where('id', '=', $getShippingVendor->transtime)->first();
+                            // $productShippings .= '"c'.$country->id.'":{"id":"'.$getShippingVendor->id.'","shipping":"'.$getShippingVendor->limit.'","free":"0","cost":"'.$getShippingVendor->cost.'","shipping_time":"'.$getShippingVendor->transtime.'", "timeName":"'.$transportInfo->name.'"}';
+                        }
+                        // if($getShipping->free){
+                        //     $shippingCost = 'Falas';
+                        // } else {
+                        //     $shippingCost = $getShipping->cost;
+                        // }
+                        $shippingCost = $getShipping->cost;
+                    }
+                    $hasCouponActive = false;
+                    if($hasCoupon && !$noStock && (($getShipping && $getShipping->shipping == 1))){
+                        if($currProduct->owner->id ==  $coupon->vendor_id){  
+                            if($coupon->type == 1){
+                                if($hasOffer && $coupon->withoffer){
+                                    $couponPrice = ($prodPrice * (100 - $coupon->discount))/100;
+                                    $couponDisscountPrice += $prodPrice - $couponPrice;
+                                    $prodPrice = $couponPrice;
+                                } else {
+                                    $prodPrice = ($oldPrice * (100 - $coupon->discount))/100;
+                                    $couponDisscountPrice += $oldPrice - $prodPrice;
+                                }
+                                $hasCouponActive = true;
+                                $couponDisscount = $coupon->discount.(($coupon->action == 1) ? '%' : '€');
+                            } else if($coupon->type == 2){
+                                $productCategories = $currProduct->allCategories()->pluck('id')->toArray();
+                                $hasCategory = array_intersect($productCategories, $couponArray);
+                                if(count($hasCategory)){
+                                    if($hasOffer && $coupon->withoffer){
+                                        $couponPrice = ($prodPrice * (100 - $coupon->discount))/100;
+                                        $couponDisscountPrice += $prodPrice - $couponPrice;
+                                        $prodPrice = $couponPrice;
+                                    } else {
+                                        $prodPrice = ($oldPrice * (100 - $coupon->discount))/100;
+                                        $couponDisscountPrice += $oldPrice - $prodPrice;
+                                    }
+                                    $hasCouponActive = true;
+                                    $couponDisscount = $coupon->discount.(($coupon->action == 1) ? '%' : '€');
+                                }
+                            } else {
+                                if(in_array($currProduct->id, $couponArray)){
+                                    if($hasOffer && $coupon->withoffer){
+                                        $couponPrice = ($prodPrice * (100 - $coupon->discount))/100;
+                                        $couponDisscountPrice += $prodPrice - $couponPrice;
+                                        $prodPrice = $couponPrice;
+                                    } else {
+                                        $prodPrice = ($oldPrice * (100 - $coupon->discount))/100;
+                                        $couponDisscountPrice += $oldPrice - $prodPrice;
+                                    }
+                                    $hasCouponActive = true;
+                                    $couponDisscount = $coupon->discount.(($coupon->action == 1) ? '%' : '€');
+                                }
+                            }
+                        }
+                    }
+                    
+                    if(!$noStock && (($getShipping && $getShipping->shipping == 1))){
+                        $totalPrice += ($product->qty * $prodPrice);
+                        $transPrice += $shippingCost;
+                    }
+                @endphp
+                <tr class="single-cart @if($noStock)no-stock @endif @if(!$getShipping || $getShipping->shipping == 0)no-shipping @endif" id="p{{$product->id}}v{{$product->variant_id}}">
+                    <td>
+                        <p style="display:none;" class="nochouttext">Ky produkt nuk mund të transportohet në lokacionin që keni zgjedhur.</p>
+                        <div class="product-info">
+                            <div class="thumbnail" >
+                                <a href="{{ route('single.product', [$currProduct->owner->slug, $currProduct->id]) }}">
+                                    <img src="{{asset('/photos/products/'.$currProduct->image)}}" alt="">
+                                </a>
+                            </div>
+                            <div class="content">
+                                <a href="{{ route('single.product', [$currProduct->owner->slug, $currProduct->id]) }}">{{$currProduct->name}}</a>
+                                @if($varName)
+                                    <p class="my-0">Varianti: <span>{{ $currentVariant->name }}</span></p>
+                                @endif
+                                <p class="mb-0">Dyqani:<strong><a href="{{ route('single.vendor', $currProduct->owner->slug) }}">{{ $currProduct->owner->name }}</a></strong></p>
+                                <p class="my-0">Transporti:<strong>{{$shippingCost}}€</strong></p>
+                            </div>
+                        </div>
+                    </td>
+                    @if($offer)
+                        <td class="price"><span>{{($prodPrice*1).'€'}}<i>{{ ($hasCouponActive)? ' ('.$couponDisscount.')' : '' }}</i></span><span class="old_price">{{($oldPrice*1).'€'}}</span><input type="hidden" class="tprice" value="{{$prodPrice}}"></td>
+                    @elseif($hasCouponActive)
+                        <td class="price"><span>{{($prodPrice*1).'€'}} <i>({{ $couponDisscount }})</i></span><span class="old_price">{{($oldPrice*1).'€'}}</span><input type="hidden" class="tprice" value="{{$prodPrice}}"></td>
+                    @else
+                        <td class="price"><span>{{($prodPrice*1).'€'}}</span><input type="hidden" class="tprice" value="{{$prodPrice}}"></td>
+                    @endif
+                    <td>
+                        <div class="cart-stock">
+                            @if($noStock)
+                                <div class="stock-options">
+                                    <div class="stock-show"><input type="number" name="tes" min="0" max="{{$prodMaxStock}}" value="{{$productStock}}" class="tqty"></div>
+                                </div>
+                                <span class="stock-info">Ska stok</span>
+                            @else
+                                @if($isLogged)
+                                <div class="stock-options">
+                                    <div class="stock-btn remove" wire:click="removeCartQty({{$product->id}}, {{$prodMaxStock}})">-</div>
+                                    <div class="stock-show"><input type="number" name="tes" min="1" max="{{$prodMaxStock}}" value="{{ $productStock }}" class="tqty"></div>
+                                    <div class="stock-btn add" wire:click="addCartQty({{$product->id}}, {{$prodMaxStock}})">+</div>
+                                </div>
+                                @else
+                                <div class="stock-options">
+                                    <div class="stock-btn remove">-</div>
+                                    <div class="stock-show"><input type="number" name="tes" min="1" max="{{$prodMaxStock}}" value="{{ $productStock }}" class="tqty"></div>
+                                    <div class="stock-btn add">+</div>
+                                </div>
+                                @endif
+                                <span class="stock-info">(Gjithsej {{$prodMaxStock}} artikuj në stok)</span>
+                            @endif
+                        </div>
+                    </td>
+                    <td><span class="total-product">{{$prodPrice * $productStock}}€</span></td>
+                    <td>
+                        @if($isLogged)
+                            <span wire:click="removeProduct({{$product->id}})"><i class="fas fa-times"></i></span>
+                        @else
+                            <span class="remove-cart"><i class="fas fa-times"></i></span>
+                        @endif
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+    @if(count($products) == 0)
+        <h2 class="noproducts tcenter my-50" @if(!$isLogged)style="display:none;"@endif>Ju nuk keni artikuj në shportë!</h2>
+    @endif
+    {{-- <h2 class="noproducts tcenter mb-2" style="display:none;">Ju nuk keni artikuj në shportë!</h2> --}}
+    <div class="cart-footer">
+        @if($hasCoupon || $showCouponMsg)
+            <p>{{ $couponText }}</p>
+        @endif
+        <div class="row">
+            <div class="col-4">
+                <div class="form-group prelative">
+                    <label for="kuponkodi">Kupon</label>
+                    <input class="form-control" id="kuponkodi" name="kuponkodi" type="text" placeholder="Shkruaj kodin e kuponit" wire:model.defer="couponCode">
+                    @if($hasCoupon)
+                        <span class="remove-coupon" wire:click="removeCoupon"><i class="fas fa-times"></i></span>
+                    @endif
+                </div>
+                @if(!$hasCoupon)
+                    <div class="form-group">
+                        <button type="button" class="btn" wire:click="addCoupon()">Apliko kuponin</button>
+                    </div>
+                @endif
+            </div>
+            <div class="col-4">
+                <div class="form-group">
+                    <label for="zonaedergesesselect">Shteti ku do dërgohet</label>
+                    <select class="form-control" id="zonaedergesesselect" wire:model="currentCountry">
+                        @foreach($shippingCountry as $country)
+                            <option value="{{$country->id}}">{{$country->name}}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="card shipping-total">
+                    <div class="card-header">
+                        <div class="tworows subtotal">
+                            <div class="left">Nëntotal</div>
+                            <div class="right"><span>{{$totalPrice * 1}}</span> €</div>
+                        </div>
+                        <div class="tworows transport">
+                            <div class="left">Kosto e transportit</div>
+                            <div class="right"><span>{{$transPrice * 1}}</span> €</div>
+                        </div>
+                        @if($couponDisscountPrice)
+                        <div class="tworows coupon">
+                            <div class="left">Kuponi</div>
+                            <div class="right"><span>- {{ $couponDisscountPrice }}</span> €</div>
+                        </div>
+                        @endif
+                    </div>
+                    <div class="card-body">
+                        <div class="tworows totals">
+                            <div class="left">Total</div>
+                            <div class="right"><span>{{$totalPrice + $transPrice}}</span> €</div>
+                        </div>
+                    </div>
+                </div>
+                @if(count($products) > 0)
+                    <a href="{{ route('view.checkout') }}" class="btn full-width">Përfundo blerjen</a>
+                @endif
+            </div>
+        </div>
+    </div>
+    <script>
+        @if(!$isLogged)
+            document.addEventListener("DOMContentLoaded", () => {
+                let noProducts = document.querySelector('.noproducts');
+                // document.addEventListener("livewire:load", function(event) {
+                //     noProducts = document.querySelector('.noproducts');
+                //     if(noProducts){
+                //         setTimeout(function(){
+                //             noProducts.style.display = 'block';
+                //         }, 500);
+                //     }
+                //     getCartss();
+                //     console.log('cart');
+                // });
+                noProducts = document.querySelector('.noproducts');
+                if(noProducts){
+                    setTimeout(function(){
+                        noProducts.style.display = 'block';
+                    }, 500);
+                }
+                getCartss();
+                console.log('cart');
+                window.livewire.on('getCart', () => {
+                    getCartss();
+                });
+                window.livewire.on('getCartLoad', () => {
+                    countTotal()
+                    let addStocks = document.querySelectorAll('.stock-btn.add');
+                    let removeStocks = document.querySelectorAll('.stock-btn.remove');
+                    let removeCarts = document.querySelectorAll('.remove-cart');
+                    let subTotal = document.querySelector('.subtotal .right span');
+                    let currentCartNow = window.localStorage.getItem('cart');
+                    let newCartNow = {};
+                    if(currentCartNow){
+                        newCartNow = JSON.parse(currentCartNow);
+                    }
+                    addStocks.forEach(addStock => {
+                        addStock.addEventListener('click', (addstock)=> {
+                            let parentEl = addstock.target.parentElement;
+                            let thisInput = parentEl.querySelector('input');
+                            if(parseInt(thisInput.value) < parseInt(thisInput.max)) {
+                                thisInput.value = parseInt(thisInput.value) + 1;
+                                let rootEl = parentEl.parentElement.parentElement.parentElement;
+                                let priceInp = rootEl.querySelector('.tprice').value;
+                                rootEl.querySelector('.total-product').innerHTML = ((parseInt(thisInput.value) * parseFloat(priceInp))).toFixed(4)*1+'€';
+                                subTotal.innerHTML = (parseFloat(subTotal.innerHTML) + parseFloat(priceInp)).toFixed(4)*1;
+                                countTotal();
+                                newCartNow[rootEl.id]['qty'] = parseInt(thisInput.value);
+                                window.localStorage.setItem('cart', JSON.stringify(newCartNow));
+                            }
+                        })
+                    })
+                    removeStocks.forEach(removeStock => {
+                        removeStock.addEventListener('click', (removestock)=> {
+                            let parentEl = removestock.target.parentElement;
+                            let thisInput = parentEl.querySelector('input');
+                            if(parseInt(thisInput.value) > parseInt(thisInput.min)) {
+                                thisInput.value = parseInt(thisInput.value) - 1;
+                                let rootEl = parentEl.parentElement.parentElement.parentElement;
+                                let priceInp = rootEl.querySelector('.tprice').value;
+                                rootEl.querySelector('.total-product').innerHTML = ((parseInt(thisInput.value) * parseFloat(priceInp))).toFixed(4)*1+'€';
+                                subTotal.innerHTML = (parseFloat(subTotal.innerHTML) - parseFloat(priceInp)).toFixed(4)*1;
+                                countTotal();
+                                newCartNow[rootEl.id]['qty'] = parseInt(thisInput.value);
+                                window.localStorage.setItem('cart', JSON.stringify(newCartNow));
+                            }
+                        })
+                    })
+                    removeCarts.forEach(removeCart => {
+                        removeCart.addEventListener('click', (removecart)=> {
+                            let rootEl = removecart.target.parentElement.parentElement;
+                            let thisPrice = rootEl.querySelector('.tprice').value;
+                            let thisQty = rootEl.querySelector('.tqty').value;
+                            let currentCartOld = window.localStorage.getItem('cart');
+                            if(currentCartOld){
+                                newCart = JSON.parse(currentCartOld);
+                                delete newCart[rootEl.id];
+                                let newCartString = JSON.stringify(newCart);
+                                window.localStorage.setItem('cart', newCartString);
+                                subTotal.innerHTML = (parseFloat(subTotal.innerHTML) - (parseFloat(thisPrice) * parseInt(thisQty))).toFixed(4)*1;
+                                countTotal();
+                                rootEl.remove();
+                                window.livewire.emitTo('header.mini-cart', 'getCarts', newCartString);
+                            }
+                            console.log(rootEl);
+                        });
+                    })
+                });
+            });
+            function countTotal(){
+                let subTotal = document.querySelector('.subtotal .right span');
+                let transportCost = document.querySelector('.transport .right span');
+                let coupon = document.querySelector('.coupon .right span');
+                let totalPrice = document.querySelector('.totals .right span');
+                totalPrice.innerHTML = parseFloat(subTotal.innerHTML) + parseFloat(transportCost.innerHTML);
+            }
+            function getCartss(){
+                let currentCart = window.localStorage.getItem('cart');
+                if(currentCart){
+                    console.log(currentCart);
+                    window.livewire.emit('sgetCart', currentCart);
+                }
+            }
+        @else
+        @endif
+        document.addEventListener("DOMContentLoaded", () => {
+            window.livewire.on('changeCountry', (e) => {
+                let selectedCountry = document.querySelector('.current-country');
+                if(selectedCountry){
+                    selectedCountry.querySelector('img').src = '/images/'+e+'.png';
+                }
+            });
+        })
+    </script>
+</div>

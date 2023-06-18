@@ -1,0 +1,592 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Carbon\Carbon;
+use App\Models\Vendor;
+use App\Models\Product;
+use App\Models\Setting;
+use App\Models\Category;
+use App\Models\Notification;
+use Illuminate\Http\Request;
+
+class NotificationController extends Controller
+{
+    public function index()
+    {
+        $notificationsNA = Notification::where('nactive', '=', 0)->get();
+        $notifications = Notification::where('nactive', '!=', 0)->get();
+        $limit = Setting::where('name', '=', 'notificationlimit')->first();
+        return view('admin.notifications.index', compact('notifications', 'notificationsNA', 'limit'));
+    }
+
+    public function limitNotification()
+    {
+        $limit = Setting::where('name', '=', 'notificationlimit')->first();
+        return view('admin.notifications.limit', compact('limit'));
+    }
+
+    public function limitNotificationUpdate(Request $request)
+    {
+        $validatedDate = $request->validate([
+            'limit' => 'required|numeric',
+        ], [
+            'limit.required' => 'Limiti është i detyrueshëm',
+            'limit.numeric' => 'Limiti duhet të jetë në formatin numër',
+        ]);
+        Setting::upsert([
+            ['name' => 'notificationlimit', 'value' => $request->limit]
+        ], ['name'], ['value']);
+        session()->put('success','Limiti u ruajt me sukses.');
+        return redirect()->route('admin.notifications.index');
+    }
+
+    public function addNotification()
+    {
+        return view('admin.notifications.add-notification');
+    }
+
+    public function storeNotification(Request $request)
+    {
+        if($request->send_later == 1){
+			$request->merge([
+                'send_later' => 1
+            ]);
+		} else {
+			$request->merge([
+                'send_at' => date("Y-m-d H:i:s")
+            ]);
+		}
+        $validatedDate = $request->validate([
+            'title' => 'required',
+            'message' => 'required',
+            'ntype' => 'required',
+            'vlink' => 'required_unless:ntype,2',
+            'plink' => 'required_if:ntype,2',
+            'coupon' => 'required_if:ntype,3',
+            'send_at' => 'required_if:send_later,1|after:'.date('Y-m-d H:i'),
+        ], [
+            'title.required' => 'Titulli është i detyrueshëm',
+            'message.required' => 'Mesazhi është i detyrueshëm',
+            'ntype.required' => 'Lloji i njoftimit është i detyrueshëm',
+            'vlink.required_unless' => 'Linku i dyqanit është i detyrueshëm',
+            'plink.required_if' => 'Linku i produktit është i detyrueshëm',
+            'coupon.required_if' => 'Kuponi është i detyrueshëm',
+            'send_at.required_if' => 'Data e dërgimit është e detyrueshme',
+            'send_at.after' => 'Data e dërgimit duhet të jetë jo më pak se data dhe ora e tanishme',
+        ]);
+        $publishLater = false;
+        if($request->send_later){
+            $publishLater = true;
+        }
+        if($request->ntype == 2){
+            $prodInfo = $this->extractUrl($request->plink);
+            if($prodInfo['status'] == 'error'){
+            } else {
+                $prodLink = $prodInfo['link'];
+                $prodName = $prodInfo['name'];
+                $additionalField = array(
+                    "product" => $prodLink,
+                    "productName" => $prodName,
+                );
+                $oLink = $request->plink;
+                $data = array(
+                    "product" => $prodLink,
+                );
+                $appUrl = 'elefandi://product';
+                $filters = array(
+                    array(
+                        "field" => "tag",
+                        "key" => "notification",
+                        "relation" => "=",
+                        "value" => "yes"
+                    ),
+                    array("operator" => "AND"),
+                    array(
+                        "field" => "tag",
+                        "key" => "products",
+                        "relation" => "=",
+                        "value" => "yes"
+                    )
+                );
+            }
+        } else {
+            $vendorInfo = $this->extractUrl($request->vlink);
+            if($vendorInfo['status'] == 'error'){
+            } else {
+                $vendLink = $vendorInfo['link'];
+                $vendName = $vendorInfo['name'];
+                $additionalField = array(
+                    "vendor" => $vendLink,
+                    "vendorName" => $vendName,
+                );
+                $oLink = $request->vlink;
+                $data = array(
+                    "vendor" => $vendLink,
+                );
+            }
+            if($request->ntype == 1){
+                $appUrl = 'elefandi://vendor';
+                $filters = array(
+                    array(
+                        "field" => "tag",
+                        "key" => "notification",
+                        "relation" => "=",
+                        "value" => "yes"
+                    ),
+                    array("operator" => "AND"),
+                    array(
+                        "field" => "tag",
+                        "key" => "vendors",
+                        "relation" => "=",
+                        "value" => "yes"
+                    )
+                );
+            } else if($request->ntype == 3){
+                $data = array(
+                    "vendor" => $vendLink,
+                    "coupon" => $request->coupon,
+                    "vendorName" => $vendName,
+                );
+                $additionalField = $data;
+                $appUrl = 'elefandi://coupon';
+                $filters = array(
+                    array(
+                        "field" => "tag",
+                        "key" => "notification",
+                        "relation" => "=",
+                        "value" => "yes"
+                    ),
+                    array("operator" => "AND"),
+                    array(
+                        "field" => "tag",
+                        "key" => "coupons",
+                        "relation" => "=",
+                        "value" => "yes"
+                    )
+                );
+            }
+        }
+        $headings = array("en" => $request->title);
+		$content = array("en" => $request->message);
+		$fields = array(
+			'app_id' => "c03ddfd6-f0d2-49b1-b99a-b1c7356605b1",
+			'filters' => $filters,
+			'data' => $data,
+			'app_url' => $appUrl,
+			'headings' => $headings,
+			'contents' => $content,
+		);
+		$sendStatus = 1;
+        $send_at = date("Y-m-d H:i:s");
+        if($publishLater){
+            $carbon_date = Carbon::parse($request->send_at);
+            $fields["send_after"] = $carbon_date;
+            $send_at = $request->send_at;
+			$sendStatus = 0;
+		}
+		$fields = json_encode($fields);
+		$onesignalId = '';
+		$onesignal = $this->onesignal(1, $fields);
+		if(isset($onesignal->errors) && $onesignal->errors){
+            ray($onesignal);
+			echo json_encode(array("status"=>"error", "message"=>$onesignal->errors));
+		} else {
+			$onesignalId = $onesignal->id;
+		}
+        $notification = new Notification();
+        $notification->title = $request->title;
+        $notification->message = $request->message;
+        $notification->ntype = $request->ntype;
+        $notification->nactive = 1;
+        $notification->link = $oLink;
+        $notification->fields = serialize($additionalField);
+        $notification->oneid = $onesignalId;
+        $notification->nsent = $sendStatus;
+        $notification->send_at = $send_at;
+        $notification->save();
+        // $notification->title = $request->title;
+        // image
+        session()->put('success','Njoftimi u shtua me sukses.');
+        return redirect()->route('admin.notifications.index');
+    }
+
+    public function editNotification($id)
+    {
+        if(is_numeric($id)){
+            $notification = Notification::findOrFail($id);
+            $sendAtTime = Carbon::parse($notification->send_at);
+            $sendAt = Carbon::now()->lt($sendAtTime);
+            return view('admin.notifications.edit-notification', compact('notification', 'sendAtTime', 'sendAt'));
+        }
+    }
+
+    public function viewNotification($id)
+    {
+        if(is_numeric($id)){
+            $notification = Notification::findOrFail($id);
+            $sendAtTime = Carbon::parse($notification->send_at);
+            $sendAt = Carbon::now()->lt($sendAtTime);
+            return view('admin.notifications.view-notification', compact('notification', 'sendAtTime', 'sendAt'));
+        }
+    }
+
+    public function updateNotification(Request $request, $id)
+    {
+        $notificationO = Notification::findOrFail($id);
+        $request->merge([
+            'ntype' => $notificationO->ntype
+        ]);
+        if($request->send_later == 1){
+			$request->merge([
+                'send_later' => 1
+            ]);
+		} else {
+			$request->merge([
+                'send_at' => date("Y-m-d H:i:s")
+            ]);
+		}
+        $validatedDate = $request->validate([
+            'title' => 'required',
+            'message' => 'required',
+            'ntype' => 'required',
+            'vlink' => 'required_unless:ntype,2',
+            'plink' => 'required_if:ntype,2',
+            'coupon' => 'required_if:ntype,3',
+            'send_at' => 'required_if:send_later,1|after:'.date('Y-m-d H:i'),
+        ], [
+            'title.required' => 'Titulli është i detyrueshëm',
+            'message.required' => 'Mesazhi është i detyrueshëm',
+            'ntype.required' => 'Lloji i njoftimit është i detyrueshëm',
+            'vlink.required_unless' => 'Linku i dyqanit është i detyrueshëm',
+            'plink.required_if' => 'Linku i produktit është i detyrueshëm',
+            'coupon.required_if' => 'Kuponi është i detyrueshëm',
+            'send_at.required_if' => 'Data e dërgimit është e detyrueshme',
+            'send_at.after' => 'Data e dërgimit duhet të jetë jo më pak se data dhe ora e tanishme',
+        ]);
+
+        $publishLater = false;
+        if($request->send_later){
+            $publishLater = true;
+        }
+        if($request->ntype == 2){
+            $prodInfo = $this->extractUrl($request->plink);
+            if($prodInfo['status'] == 'error'){
+            } else {
+                $prodLink = $prodInfo['link'];
+                $prodName = $prodInfo['name'];
+                $additionalField = array(
+                    "product" => $prodLink,
+                    "productName" => $prodName,
+                );
+                $oLink = $request->plink;
+                $data = array(
+                    "product" => $prodLink,
+                );
+                $appUrl = 'elefandi://product';
+                $filters = array(
+                    array(
+                        "field" => "tag",
+                        "key" => "notification",
+                        "relation" => "=",
+                        "value" => "yes"
+                    ),
+                    array("operator" => "AND"),
+                    array(
+                        "field" => "tag",
+                        "key" => "products",
+                        "relation" => "=",
+                        "value" => "yes"
+                    )
+                );
+            }
+        } else {
+            $vendorInfo = $this->extractUrl($request->vlink);
+            if($vendorInfo['status'] == 'error'){
+            } else {
+                $vendLink = $vendorInfo['link'];
+                $vendName = $vendorInfo['name'];
+                $additionalField = array(
+                    "vendor" => $vendLink,
+                    "vendorName" => $vendName,
+                );
+                $oLink = $request->vlink;
+                $data = array(
+                    "vendor" => $vendLink,
+                );
+            }
+            if($request->ntype == 1){
+                $appUrl = 'elefandi://vendor';
+                $filters = array(
+                    array(
+                        "field" => "tag",
+                        "key" => "notification",
+                        "relation" => "=",
+                        "value" => "yes"
+                    ),
+                    array("operator" => "AND"),
+                    array(
+                        "field" => "tag",
+                        "key" => "vendors",
+                        "relation" => "=",
+                        "value" => "yes"
+                    )
+                );
+            } else if($request->ntype == 3){
+                $data = array(
+                    "vendor" => $vendLink,
+                    "coupon" => $request->coupon,
+                    "vendorName" => $vendName,
+                );
+                $additionalField = $data;
+                $appUrl = 'elefandi://coupon';
+                $filters = array(
+                    array(
+                        "field" => "tag",
+                        "key" => "notification",
+                        "relation" => "=",
+                        "value" => "yes"
+                    ),
+                    array("operator" => "AND"),
+                    array(
+                        "field" => "tag",
+                        "key" => "coupons",
+                        "relation" => "=",
+                        "value" => "yes"
+                    )
+                );
+            }
+        }
+        $headings = array("en" => $request->title);
+		$content = array("en" => $request->message);
+		$fields = array(
+			'app_id' => "c03ddfd6-f0d2-49b1-b99a-b1c7356605b1",
+			'filters' => $filters,
+			'data' => $data,
+			'app_url' => $appUrl,
+			'headings' => $headings,
+			'contents' => $content,
+		);
+		$sendStatus = 1;
+        $send_at = date("Y-m-d H:i:s");
+        if($publishLater){
+            $carbon_date = Carbon::parse($request->send_at);
+            $fields["send_after"] = $carbon_date;
+            $send_at = $request->send_at;
+			$sendStatus = 0;
+		}
+		$fields = json_encode($fields);
+		$onesignalId = '';
+		$onesignal = $this->onesignal(1, $fields);
+		if(isset($onesignal->errors) && $onesignal->errors){
+            ray($onesignal);
+			echo json_encode(array("status"=>"error", "message"=>$onesignal->errors));
+		} else {
+			$onesignalId = $onesignal->id;
+		}
+        $notificationO->title = $request->title;
+        $notificationO->message = $request->message;
+        $notificationO->ntype = $request->ntype;
+        $notificationO->nactive = 1;
+        $notificationO->link = $oLink;
+        $notificationO->fields = serialize($additionalField);
+        $notificationO->oneid = $onesignalId;
+        $notificationO->nsent = $sendStatus;
+        $notificationO->send_at = $send_at;
+        $notificationO->save();
+        session()->put('success','Njoftimi u pranua me sukses.');
+        return redirect()->route('admin.notifications.index');
+    }
+
+    public function rejectNotification(Request $request, $id)
+    {
+        if(is_numeric($id)){
+            $notification = Notification::findOrFail($id);
+            $notification->nactive = 2;
+            $notification->save();
+            session()->put('success','Njoftimi u refuzua me sukses.');
+            return redirect()->route('admin.notifications.index');
+        }
+    }
+
+    protected function extractUrl($url){
+        $re = '/^(?:(?:www\.)?(?:.*?))\.(?:com|al)\/(.*)/m';
+        preg_match($re,trim($url),$match);
+        if($match[1]){
+            preg_match('/^(?:(?:https|http)?(?::\/\/))?(?:www.)?(elefandi.com)/m',trim($url),$matchUrl);
+            ray($matchUrl);
+            if($matchUrl && $matchUrl[1] != 'elefandi.com'){
+                return ['status'=>'error', 'message'=>'Link i gabuar1'];
+            }
+            $urlExplode = explode('/', $match[1]);
+            if(count($urlExplode) == 2){
+                if(is_numeric($urlExplode[1])){
+                    $pId = $urlExplode[1];
+                    $product = Product::find($pId);
+                    if($product){
+                        return ['status'=>'success', 'link'=>'product/'.$pId, 'name'=>$product->name, 'id'=>$product->id];
+                    }
+                    return ['status'=>'error', 'message'=>'Link i gabuar1'];
+                } else {
+                    if($urlExplode[0] == 'category'){
+                        $cSlug = $urlExplode[1];
+                        $category = Category::where('slug', '=', $cSlug)->first();
+                        if($category){
+                            return ['status'=>'success', 'link'=>'category/'.$category->id];
+                        }
+                    }
+                }
+            } else {
+                $vendor = Vendor::where('slug', '=', $urlExplode[0])->first();
+                if($vendor){
+                    return ['status'=>'success', 'link'=>'vendor/'.$vendor->id, 'name'=>$vendor->name];
+                }
+            }
+        }
+    }
+
+    protected function onesignal($send, $fields){
+		if($send == 1){
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_URL, "https://onesignal.com/api/v1/notifications");
+			curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json; charset=utf-8', 'Authorization: Basic NDRjZDQwM2QtNTkzYy00MWYzLThjMDUtYjc3MjZjYmRmZGJk'));
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+			curl_setopt($ch, CURLOPT_HEADER, FALSE);
+			curl_setopt($ch, CURLOPT_POST, TRUE);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $fields);
+			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+
+			$response = curl_exec($ch);
+			curl_close($ch);
+			return json_decode($response);
+		} else if ($send == 2){
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_URL, "https://onesignal.com/api/v1/notifications/".$fields."?app_id=c03ddfd6-f0d2-49b1-b99a-b1c7356605b1");
+			curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json', 'Authorization: Basic NDRjZDQwM2QtNTkzYy00MWYzLThjMDUtYjc3MjZjYmRmZGJk'));
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+			curl_setopt($ch, CURLOPT_HEADER, FALSE);
+			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+
+			$response = curl_exec($ch);
+			curl_close($ch);
+			return json_decode($response);
+		} else if ($send == 3){
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_URL, "https://onesignal.com/api/v1/notifications/".$fields."?app_id=c03ddfd6-f0d2-49b1-b99a-b1c7356605b1");
+			curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");
+			curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json', 'Authorization: Basic NDRjZDQwM2QtNTkzYy00MWYzLThjMDUtYjc3MjZjYmRmZGJk'));
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+			curl_setopt($ch, CURLOPT_HEADER, FALSE);
+			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+
+			$response = curl_exec($ch);
+			curl_close($ch);
+			return json_decode($response);
+		}
+	}
+
+    public function vindex()
+    {
+        $notificationsNA = current_vendor()->notifications->where('nactive', '=', 0);
+        $notifications = current_vendor()->notifications->where('nactive', '!=', 0);
+        $limit = current_vendor()->nlimit;
+        if(!current_vendor()->nlimit){
+            $limit = Setting::where('name', '=', 'notificationlimit')->first();
+            $limit = $limit->value;
+        }
+        $thisMonth = date('Y-m-01 00:01:00');
+        $notificationsC = current_vendor()->notifications->where('created_at', '>', $thisMonth)->where('nactive', '!=', 2)->count();
+        return view('admin.notifications.vindex', compact('notifications', 'notificationsNA', 'notificationsC', 'limit'));
+    }
+
+    public function vaddNotification()
+    {
+        $limit = current_vendor()->nlimit;
+        if(!current_vendor()->nlimit){
+            $limit = Setting::where('name', '=', 'notificationlimit')->first();
+            $limit = $limit->value;
+        }
+        $thisMonth = date('Y-m-01 00:01:00');
+        $notificationsC = current_vendor()->notifications->where('created_at', '>', $thisMonth)->where('nactive', '!=', 2)->count();
+        if($notificationsC <= $limit){
+            return view('admin.notifications.vadd-notification');
+        }
+        session()->put('success','Njoftimi kanë arritur limitin. Kontaktoni me administratorin për të shtuar limitin tuaj mujor');
+        return redirect()->route('vendor.notifications.index');
+    }
+
+    public function vstoreNotification(Request $request)
+    {
+        if($request->send_later == 1){
+			$request->merge([
+                'send_later' => 1
+            ]);
+		} else {
+			$request->merge([
+                'send_at' => date("Y-m-d H:i:s")
+            ]);
+		}
+        $validatedDate = $request->validate([
+            'title' => 'required',
+            'message' => 'required',
+            'ntype' => 'required',
+            'plink' => 'required_if:ntype,2',
+            'coupon' => 'required_if:ntype,3',
+            'send_at' => 'required_if:send_later,1|after:'.date('Y-m-d H:i'),
+        ], [
+            'title.required' => 'Titulli është i detyrueshëm',
+            'message.required' => 'Mesazhi është i detyrueshëm',
+            'ntype.required' => 'Lloji i njoftimit është i detyrueshëm',
+            'plink.required_if' => 'Linku i produktit është i detyrueshëm',
+            'coupon.required_if' => 'Kuponi është i detyrueshëm',
+            'send_at.required_if' => 'Data e dërgimit është e detyrueshme',
+            'send_at.after' => 'Data e dërgimit duhet të jetë jo më pak se data dhe ora e tanishme',
+        ]);
+
+        $send_at = date("Y-m-d H:i:s");
+        if($request->send_later){
+            $send_at = $request->send_at;
+        }
+        $additionalField = '';
+        if($request->ntype == 1){
+            $oLink = route('single.vendor', current_vendor()->slug);
+        } elseif ($request->ntype == 2){
+            $productLink = $this->extractUrl($request->plink);
+            if($productLink['status'] == 'error'){
+                return redirect()->back()->withInput()->with('cerror', 'Linku i produktit është i gabuar');
+            }
+            $oLink = $request->plink;
+
+        } elseif ($request->ntype == 3){
+            $oLink = route('single.vendor', current_vendor()->slug);
+            $additionalField = $request->coupon;
+        }
+        $notification = new Notification();
+        $notification->vendor_id = current_vendor()->id;
+        $notification->title = $request->title;
+        $notification->message = $request->message;
+        $notification->ntype = $request->ntype;
+        $notification->nactive = 1;
+        $notification->link = $oLink;
+        $notification->fields = $additionalField;
+        $notification->oneid = '';
+        $notification->nsent = 0;
+        $notification->nactive = 0;
+        $notification->send_at = $send_at;
+        $notification->save();
+        session()->put('success','Njoftimi u shtua me sukses.');
+        return redirect()->route('vendor.notifications.index');
+    }
+
+    public function vdeleteNotification($id)
+    {
+        if(is_numeric($id)){
+            $notification = Notification::findOrFail($id);
+            if(($notification->vendor_id == current_vendor()->id) && ($notification->nactive == 0)){
+                $notification->delete();
+                session()->put('success','Njoftimi u fshi me sukses.');
+                return redirect()->route('vendor.notifications.index');
+            }
+        }
+    }
+}
